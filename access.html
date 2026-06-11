@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AccessMind AI - Ecosistema de Accesibilidad Universal</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #0d0d11;
+        color: #ffffff;
+      }
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+      }
+      #interface-ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 10;
+        background: rgba(15, 15, 20, 0.9);
+        padding: 22px;
+        border-radius: 16px;
+        border: 1px solid #334444;
+        width: 350px;
+        max-height: 90vh;
+        overflow-y: auto;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 5px 0;
+        color: #00ffcc;
+        text-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+      }
+      h2 {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin: 0 0 15px 0;
+        color: #889999;
+      }
+      .info-universal {
+        background: #1a0033;
+        border: 1px solid #aa00ff;
+        color: #f0dbff;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        margin-bottom: 12px;
+        line-height: 1.4;
+      }
+      .menu-opciones {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 15px;
+      }
+      .opcion-item {
+        padding: 12px;
+        background: #16161a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: bold;
+        transition: all 0.2s ease;
+      }
+      .opcion-item.escaneando {
+        background: #003322;
+        border-color: #00ffcc;
+        color: #00ffcc;
+        box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
+        transform: scale(1.02);
+      }
+      .opcion-item.seleccionada {
+        background: #3a0033;
+        border-color: #ff00ff;
+        color: #ffb3ff;
+        box-shadow: 0 0 15px rgba(255, 0, 255, 0.4);
+      }
+
+      /* --- CAJA DE SUBTÍTULOS GIGANTES PARA PERSONAS HIPOACÚSICAS --- */
+      #contenedor-subtitulos {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
+        background: #ffff00; /* Fondo amarillo de alta visibilidad */
+        color: #000000; /* Texto negro para contraste absoluto */
+        padding: 18px 30px;
+        border-radius: 8px;
+        font-size: 26px; /* Tipografía gigante para lectura rápida */
+        font-weight: 800;
+        text-align: center;
+        max-width: 65vw;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        border: 2px solid #ffffff;
+        display: none; /* Se oculta por defecto y aparece al activarse */
+        backdrop-filter: blur(5px);
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  </head>
+  <body>
+    <div id="interface-ui">
+      <h1>AccessMind AI</h1>
+      <h2>Ecosistema de Accesibilidad Universal</h2>
+
+      <div class="info-universal">
+        🧏 👁️ <strong>Inclusión Multi-Canal Activa:</strong><br />
+        • Presioná <strong>ESPACIO</strong> una vez para iniciar el barrido.<br />
+        • El sistema **hablará** (para ciegos) y desplegará **subtítulos
+        gigantes** (para hipoacúsicos) al mismo tiempo.<br />
+        • Volvé a presionar <strong>ESPACIO</strong> para elegir la opción
+        activa.
+      </div>
+
+      <div class="menu-opciones" id="contenedor-opciones">
+        <div class="opcion-item" id="opc-0">
+          👋 1. Modo Saludo Institucional
+        </div>
+        <div class="opcion-item" id="opc-1">
+          📖 2. Modo Lectura de Consignas
+        </div>
+        <div class="opcion-item" id="opc-2">
+          ⚠️ 3. Alerta de Fechas Críticas
+        </div>
+        <div class="opcion-item" id="opc-3">
+          👁️ 4. Descripción Espacial de Pantalla
+        </div>
+        <div class="opcion-item" id="opc-4">
+          🧏 5. Subtitulado de Alta Visibilidad
+        </div>
+        <div class="opcion-item" id="opc-5">
+          🎙️ 6. Iniciar Consulta Guiada por Voz
+        </div>
+      </div>
+    </div>
+
+    <div id="contenedor-subtitulos">SUBTÍTULOS ACTIVOS</div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+      // --- CONFIGURACIÓN BASE DE THREE.JS ---
+      const container = document.getElementById("canvas-container");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a0d);
+
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100,
+      );
+      camera.position.set(0, 1, 5.5);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0x444444);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0x00ffcc, 1.2);
+      directionalLight.position.set(5, 5, 5);
+      scene.add(directionalLight);
+
+      // --- ESTRUCTURA ROBÓTICA DE AURA ---
+      const robotGroup = new THREE.Group();
+      const headGeo = new THREE.BoxGeometry(1, 0.8, 0.8);
+      const headMat = new THREE.MeshLambertMaterial({ color: 0xdddddd });
+      const head = new THREE.Mesh(headGeo, headMat);
+      head.position.y = 1.3;
+      robotGroup.add(head);
+
+      const visorGeo = new THREE.BoxGeometry(0.8, 0.25, 0.1);
+      const visorMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+      const visor = new THREE.Mesh(visorGeo, visorMat);
+      visor.position.set(0, 1.3, 0.4);
+      robotGroup.add(visor);
+
+      const bodyGeo = new THREE.CylinderGeometry(0.55, 0.35, 1.4, 16);
+      const bodyMat = new THREE.MeshLambertMaterial({ color: 0x292929 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.y = 0;
+      robotGroup.add(body);
+
+      const armLeftGroup = new THREE.Group();
+      armLeftGroup.position.set(-0.75, 0.4, 0);
+      const armLeftGeo = new THREE.BoxGeometry(0.18, 0.75, 0.18);
+      const armLeftMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
+      const armLeft = new THREE.Mesh(armLeftGeo, armLeftMat);
+      armLeft.position.y = -0.35;
+      armLeftGroup.add(armLeft);
+      robotGroup.add(armLeftGroup);
+
+      const armRightGroup = new THREE.Group();
+      armRightGroup.position.set(0.75, 0.4, 0);
+      const armRightGeo = new THREE.BoxGeometry(0.18, 0.75, 0.18);
+      const armRightMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
+      const armRight = new THREE.Mesh(armRightGeo, armRightMat);
+      armRight.position.y = -0.35;
+      armRightGroup.add(armRight);
+      robotGroup.add(armRightGroup);
+
+      scene.add(robotGroup);
+      robotGroup.position.y = -0.4;
+
+      // --- BUCLE DE ANIMACIONES ---
+      let estadoActual = "espera";
+      let reloj = 0;
+
+      function animate() {
+        requestAnimationFrame(animate);
+        reloj += 0.05;
+
+        if (estadoActual === "espera") {
+          robotGroup.position.y = -0.4 + Math.sin(reloj) * 0.04;
+          head.rotation.y = Math.sin(reloj * 0.4) * 0.08;
+          visorMat.color.setHex(0x00ffcc);
+          armLeftGroup.rotation.z = Math.sin(reloj) * 0.03;
+          armRightGroup.rotation.z = -Math.sin(reloj) * 0.03;
+        } else if (estadoActual === "escaneando") {
+          visorMat.color.setHex(0x00aaff);
+          head.rotation.y = Math.sin(reloj * 2) * 0.1;
+        } else if (estadoActual === "leyendo") {
+          robotGroup.position.y = -0.4 + Math.sin(reloj * 2) * 0.02;
+          head.rotation.y = Math.sin(reloj * 1.5) * 0.2;
+          visorMat.color.setHex(0xffff00);
+          armLeftGroup.rotation.x = -0.4;
+          armRightGroup.rotation.x = -0.4;
+        } else if (estadoActual === "consultaVoz") {
+          head.rotation.x = Math.sin(reloj * 3) * 0.06;
+          visorMat.color.setHex(0xff00ff);
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      // --- DATA DE ENTRADA ---
+      const opcionesInfo = [
+        {
+          nombre: "Modo Saludo Institucional",
+          texto:
+            "Hola, bienvenido al campus accesible global. ¿Qué trámite o lectura deseas realizar hoy?",
+        },
+        {
+          nombre: "Modo Lectura de Consignas",
+          texto:
+            "Consigna del Trabajo Integrador de Innovación IT. Punto uno. Identificación del problema actual en el sector informático utilizando el Mundo Cerrado.",
+        },
+        {
+          nombre: "Alerta de Fechas Críticas",
+          texto:
+            "Atención. Se ha detectado una colisión crítica de fechas en su calendario académico. El examen de Modelos vence esta semana.",
+        },
+        {
+          nombre: "Descripción Espacial de Pantalla",
+          texto:
+            "Modo audiodescripción. Te encuentras en el panel principal. Esquina superior izquierda: menú de asignaturas. Centro: formulario de entregas pendientes.",
+        },
+        {
+          nombre: "Subtitulado de Alta Visibilidad",
+          texto:
+            "Subtítulos dinámicos activados. Optimizando la visualización del texto en pantalla con tipografía adaptable de alto contraste.",
+        },
+        {
+          nombre: "Iniciar Consulta Guiada por Voz",
+          texto:
+            "Conectando con la base de datos de Alumnos. Tu promedio actual es de ocho puntos cincuenta y no registrás deudas pendientes.",
+        },
+      ];
+
+      // --- ELEMENTO DE SUBTÍTULOS ---
+      const cajaSubtitulos = document.getElementById("contenedor-subtitulos");
+      let escaneoActivo = false;
+      let indiceActual = -1;
+      let timeoutEscaneo;
+
+      function gestionarTecladoEspacio() {
+        window.speechSynthesis.cancel();
+
+        if (escaneoActivo) {
+          escaneoActivo = false;
+          clearTimeout(timeoutEscaneo);
+          ejecutarOpcionSeleccionada(indiceActual);
+        } else {
+          escaneoActivo = true;
+          indiceActual = 0;
+          estadoActual = "escaneando";
+          cajaSubtitulos.style.display = "block"; // Desplegar marquesina flotante
+          reproducirOpcionSecuencial();
+        }
+      }
+
+      function reproducirOpcionSecuencial() {
+        if (!escaneoActivo) return;
+
+        for (let i = 0; i < opcionesInfo.length; i++) {
+          document.getElementById(`opc-${i}`).className = "opcion-item";
+        }
+
+        const elementoUIVisual = document.getElementById(`opc-${indiceActual}`);
+        elementoUIVisual.className = "opcion-item escaneando";
+
+        // Muestra en texto gigante la opción de menú para personas sordas
+        cajaSubtitulos.innerText = `Menú activo: ${opcionesInfo[indiceActual].nombre.toUpperCase()}`;
+
+        const locucionMenu = new SpeechSynthesisUtterance(
+          opcionesInfo[indiceActual].nombre,
+        );
+        locucionMenu.lang = "es-AR";
+        locucionMenu.rate = 0.95;
+
+        locucionMenu.onend = function () {
+          timeoutEscaneo = setTimeout(() => {
+            if (escaneoActivo) {
+              indiceActual = (indiceActual + 1) % opcionesInfo.length;
+              reproducirOpcionSecuencial();
+            }
+          }, 1200);
+        };
+
+        window.speechSynthesis.speak(locucionMenu);
+      }
+
+      function ejecutarOpcionSeleccionada(indice) {
+        const elementoUIVisual = document.getElementById(`opc-${indice}`);
+        elementoUIVisual.className = "opcion-item seleccionada";
+
+        const opcionElegida = opcionesInfo[indice];
+        estadoActual = indice === 5 ? "consultaVoz" : "leyendo";
+
+        // Muestra el bloque completo del contenido dinámico leido en vivo para usuarios hipoacúsicos
+        cajaSubtitulos.innerText = `AURA: "${opcionElegida.texto}"`;
+
+        const locucionEjecucion = new SpeechSynthesisUtterance(
+          opcionElegida.texto,
+        );
+        locucionEjecucion.lang = "es-AR";
+        locucionEjecucion.rate = 0.95;
+
+        locucionEjecucion.onend = function () {
+          estadoActual = "espera";
+          elementoUIVisual.className = "opcion-item";
+          cajaSubtitulos.style.display = "none"; // Ocultar al finalizar la interacción
+        };
+
+        window.speechSynthesis.speak(locucionEjecucion);
+      }
+
+      window.addEventListener("keydown", function (evento) {
+        if (evento.key === " " || evento.key === "Spacebar") {
+          evento.preventDefault();
+          gestionarTecladoEspacio();
+        }
+      });
+
+      window.addEventListener("resize", onWindowResize, false);
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>
