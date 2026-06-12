@@ -288,6 +288,26 @@
       let indiceActual = -1;
       let timeoutEscaneo;
 
+      // --- FUNCIÓN INTELIGENTE PARA FORZAR VOZ EN ESPAÑOL ---
+      function configurarVozEspañol(instanciaUtterance) {
+        const vocesDisponibles = window.speechSynthesis.getVoices();
+        
+        // 1. Buscamos de Argentina primero
+        let vozElegida = vocesDisponibles.find(voz => voz.lang === 'es-AR');
+        
+        // 2. Si no, buscamos cualquier variante de español (es-ES, es-MX, etc.)
+        if (!vozElegida) {
+          vozElegida = vocesDisponibles.find(voz => voz.lang.startsWith('es'));
+        }
+        
+        if (vozElegida) {
+          instanciaUtterance.voice = vozElegida;
+          instanciaUtterance.lang = vozElegida.lang;
+        } else {
+          instanciaUtterance.lang = "es-ES"; 
+        }
+      }
+
       function gestionarTecladoEspacio() {
         window.speechSynthesis.cancel();
 
@@ -299,7 +319,7 @@
           escaneoActivo = true;
           indiceActual = 0;
           estadoActual = "escaneando";
-          cajaSubtitulos.style.display = "block"; // Desplegar marquesina flotante
+          cajaSubtitulos.style.display = "block";
           reproducirOpcionSecuencial();
         }
       }
@@ -314,13 +334,10 @@
         const elementoUIVisual = document.getElementById(`opc-${indiceActual}`);
         elementoUIVisual.className = "opcion-item escaneando";
 
-        // Muestra en texto gigante la opción de menú para personas sordas
         cajaSubtitulos.innerText = `Menú activo: ${opcionesInfo[indiceActual].nombre.toUpperCase()}`;
 
-        const locucionMenu = new SpeechSynthesisUtterance(
-          opcionesInfo[indiceActual].nombre,
-        );
-        locucionMenu.lang = "es-AR";
+        const locucionMenu = new SpeechSynthesisUtterance(opcionesInfo[indiceActual].nombre);
+        configurarVozEspañol(locucionMenu);
         locucionMenu.rate = 0.95;
 
         locucionMenu.onend = function () {
@@ -342,19 +359,16 @@
         const opcionElegida = opcionesInfo[indice];
         estadoActual = indice === 5 ? "consultaVoz" : "leyendo";
 
-        // Muestra el bloque completo del contenido dinámico leido en vivo para usuarios hipoacúsicos
         cajaSubtitulos.innerText = `AURA: "${opcionElegida.texto}"`;
 
-        const locucionEjecucion = new SpeechSynthesisUtterance(
-          opcionElegida.texto,
-        );
-        locucionEjecucion.lang = "es-AR";
+        const locucionEjecucion = new SpeechSynthesisUtterance(opcionElegida.texto);
+        configurarVozEspañol(locucionEjecucion);
         locucionEjecucion.rate = 0.95;
 
         locucionEjecucion.onend = function () {
           estadoActual = "espera";
           elementoUIVisual.className = "opcion-item";
-          cajaSubtitulos.style.display = "none"; // Ocultar al finalizar la interacción
+          cajaSubtitulos.style.display = "none";
         };
 
         window.speechSynthesis.speak(locucionEjecucion);
@@ -372,6 +386,12 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      // Precarga de voces para navegadores asíncronos
+      window.speechSynthesis.getVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = window.speechSynthesis.getVoices;
       }
 
       animate();
